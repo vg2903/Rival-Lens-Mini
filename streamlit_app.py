@@ -2,22 +2,11 @@
 # ---------------------------------------------------------------
 # RivalLens Mini — SEO Automation Flow (Beautiful Streamlit UI)
 # ---------------------------------------------------------------
-# Features
-# 1) Input up to 10 URLs (or paste one)
-# 2) Fetch & parse page content (requests + BeautifulSoup)
-# 3) Lightweight keyword extraction (n-gram frequency w/ stopword filtering)
-# 4) Find authentic user questions from Reddit/Quora via SerpAPI (optional)
-# 5) Generate FAQs answers, meta tags, H1/H2s via OpenAI (or Gemini) API
-# 6) Internal link recommendations across the provided URLs
-# 7) Clean UI/UX with steps, progress, tabs, and export (CSV/JSON)
-# 8) "No-API demo" mode for quick local testing
-# ---------------------------------------------------------------
 
 import os
 import re
 import json
 import time
-import math
 import html
 import textwrap
 from dataclasses import dataclass
@@ -74,7 +63,6 @@ class PageData:
 # -------------------------
 # UI Helpers
 # -------------------------
-
 def badge(text: str):
     st.markdown(
         f"""
@@ -84,7 +72,6 @@ def badge(text: str):
         """,
         unsafe_allow_html=True,
     )
-
 
 def section_title(title: str, subtitle: Optional[str] = None):
     st.markdown(f"<h2 style='margin-bottom:0'>{html.escape(title)}</h2>", unsafe_allow_html=True)
@@ -97,13 +84,15 @@ def section_title(title: str, subtitle: Optional[str] = None):
 # -------------------------
 # Core: Fetch & Parse
 # -------------------------
-
 def fetch_page(url: str, timeout: int = 20) -> Tuple[str, str]:
     """Return (title, visible_text) for a URL."""
     try:
         headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-            "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 RivalLensMini/1.0"
+            "User-Agent": (
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                "AppleWebKit/537.36 (KHTML, like Gecko) "
+                "Chrome/120.0.0.0 Safari/537.36 RivalLensMini/1.0"
+            )
         }
         resp = requests.get(url, headers=headers, timeout=timeout)
         resp.raise_for_status()
@@ -116,36 +105,30 @@ def fetch_page(url: str, timeout: int = 20) -> Tuple[str, str]:
         text = " ".join(t.get_text(separator=" ", strip=True) for t in soup.find_all())
         text = re.sub(r"\s+", " ", text)
         return page_title[:200], text
-    except Exception as e:
-        return url, f""
+    except Exception:
+        return url, ""
 
 # -------------------------
 # Keyword Extraction (simple n-gram frequency)
 # -------------------------
-
 def extract_keywords_basic(text: str, top_k: int = 12) -> List[str]:
     text = text.lower()
-    # Keep words only
     tokens = re.findall(r"[a-zA-Z][a-zA-Z\-]+", text)
     tokens = [t for t in tokens if t not in STOPWORDS and len(t) > 2]
 
-    # Build n-grams (1-3)
-    grams = []
+    grams: List[str] = []
     for n in [1, 2, 3]:
         for i in range(len(tokens) - n + 1):
             grams.append(" ".join(tokens[i : i + n]))
 
-    # Frequency
     freq: Dict[str, int] = {}
     for g in grams:
         freq[g] = freq.get(g, 0) + 1
 
-    # Prefer multi-grams by boosting score
     scored = [(k, v * (1 + 0.5 * (len(k.split()) - 1))) for k, v in freq.items()]
     scored.sort(key=lambda x: x[1], reverse=True)
 
-    # De-duplicate similar n-grams (keep longest)
-    selected = []
+    selected: List[str] = []
     for k, _ in scored:
         if any(k in s or s in k for s in selected):
             continue
@@ -157,7 +140,6 @@ def extract_keywords_basic(text: str, top_k: int = 12) -> List[str]:
 # -------------------------
 # User Questions via SerpAPI (Google) — optional but robust
 # -------------------------
-
 def search_questions_serpapi(query: str, serpapi_key: str, engine: str = "google", num: int = 10) -> List[Dict]:
     """Search with site:reddit or site:quora and return results."""
     if not serpapi_key:
@@ -177,7 +159,6 @@ def search_questions_serpapi(query: str, serpapi_key: str, engine: str = "google
     except Exception:
         return []
 
-
 def collect_user_questions(keywords: List[str], serpapi_key: str, per_source: int = 5) -> List[str]:
     """Find authentic questions from Reddit/Quora searches."""
     questions: List[str] = []
@@ -185,16 +166,16 @@ def collect_user_questions(keywords: List[str], serpapi_key: str, per_source: in
         return questions
 
     base_queries = [
-    q
-    for src in USER_QUESTION_SOURCES
-    for kw in keywords[:3]
-    for q in [
-        f"site:{src} {kw} what",
-        f"site:{src} {kw} how",
-        f"site:{src} {kw} best",
-        f"site:{src} {kw} vs"
+        q
+        for src in USER_QUESTION_SOURCES
+        for kw in keywords[:3]
+        for q in [
+            f"site:{src} {kw} what",
+            f"site:{src} {kw} how",
+            f"site:{src} {kw} best",
+            f"site:{src} {kw} vs",
+        ]
     ]
-]
 
     for q in base_queries:
         results = search_questions_serpapi(q, serpapi_key)
@@ -203,24 +184,21 @@ def collect_user_questions(keywords: List[str], serpapi_key: str, per_source: in
             if not title:
                 continue
             title = html.unescape(title)
-            # Heuristic: treat titles ending in ? or starting with interrogatives as questions
             if title.endswith("?") or re.match(r"^(what|how|why|when|which|where|can|does|do)\b", title.strip().lower()):
                 if title not in questions:
                     questions.append(title)
         if len(questions) >= per_source * len(USER_QUESTION_SOURCES):
             break
 
-    # Deduplicate + trim
-    uniq = []
+    uniq: List[str] = []
     for q in questions:
         if q not in uniq:
             uniq.append(q)
     return uniq[: per_source * len(USER_QUESTION_SOURCES)]
 
 # -------------------------
-# OpenAI / Gemini — text generation
+# OpenAI — text generation
 # -------------------------
-
 def generate_with_openai(prompt: str, api_key: str, model: str = "gpt-4o-mini") -> str:
     """Lightweight OpenAI call using REST (no sdk dependency)."""
     if not api_key:
@@ -238,8 +216,6 @@ def generate_with_openai(prompt: str, api_key: str, model: str = "gpt-4o-mini") 
     except Exception:
         return ""
 
-# Fallback demo generator (no external call)
-
 def demo_generate(prompt: str) -> str:
     return textwrap.shorten(
         (
@@ -255,30 +231,27 @@ def demo_generate(prompt: str) -> str:
 # -------------------------
 # Internal Link Recommendations (TF-IDF Similarity)
 # -------------------------
-
 def recommend_internal_links(pages: List[PageData], top_n: int = 3) -> List[Dict[str, str]]:
     """For each page, suggest top_n links to other pages based on content similarity."""
     if len(pages) < 2:
         return []
 
     docs = [p.text for p in pages]
-    urls = [p.url for p in pages]
     tfidf = TfidfVectorizer(max_features=5000, ngram_range=(1, 2), stop_words="english")
     X = tfidf.fit_transform(docs)
     sim = cosine_similarity(X)
 
     recs: List[Dict[str, str]] = []
-    for i, src_url in enumerate(urls):
+    for i, _ in enumerate(pages):
         sims = list(enumerate(sim[i]))
         sims = [s for s in sims if s[0] != i]
         sims.sort(key=lambda x: x[1], reverse=True)
         for j, score in sims[:top_n]:
             tgt = pages[j]
-            # Simple anchor: top keyword overlap or target title
             anchor = (pages[i].keywords[:1] or [tgt.title.split("|")[0][:40]])[0]
             recs.append(
                 {
-                    "source_url": src_url,
+                    "source_url": pages[i].url,
                     "anchor_text": anchor,
                     "target_url": tgt.url,
                     "reason": f"High topical similarity ({score:.2f}).",
@@ -289,7 +262,6 @@ def recommend_internal_links(pages: List[PageData], top_n: int = 3) -> List[Dict
 # -------------------------
 # AI Orchestration per Page
 # -------------------------
-
 def build_ai_prompts(page: PageData) -> Dict[str, str]:
     kw_line = ", ".join(page.keywords[:8])
     faq_block = "\n".join([f"- {q}" for q in page.questions[:DEFAULT_FAQ_COUNT]])
@@ -300,7 +272,8 @@ You are an SEO & editorial expert. Given the page title and topic keywords below
 
 Page Title: {page.title}
 Topic Keywords: {kw_line}
-FAQs:\n{faq_block}
+FAQs:
+{faq_block}
 
 Return as a JSON array of objects with keys: question, answer.
 """.strip(),
@@ -321,19 +294,16 @@ Top Keywords: {kw_line}
     }
     return prompts
 
-
-def run_ai_generation(page: PageData, api_key: str, demo_mode: bool = False) -> PageData:
+def run_ai_generation(page: PageData, api_key: str, model: str, demo_mode: bool = False) -> PageData:
     prompts = build_ai_prompts(page)
-    gen = demo_generate if (demo_mode or not api_key) else (lambda p: generate_with_openai(p, api_key))
+    gen = demo_generate if (demo_mode or not api_key) else (lambda p: generate_with_openai(p, api_key, model))
 
-    # FAQs (answers)
     faqs_raw = gen(prompts["faqs"]) or "[]"
     try:
         page.ai_faqs = json.loads(faqs_raw)
     except Exception:
         page.ai_faqs = [{"question": q, "answer": demo_generate("answer")[:200]} for q in page.questions[:DEFAULT_FAQ_COUNT]]
 
-    # Meta
     meta_raw = gen(prompts["meta"]) or "{}"
     try:
         page.meta = json.loads(meta_raw)
@@ -344,7 +314,6 @@ def run_ai_generation(page: PageData, api_key: str, demo_mode: bool = False) -> 
             "keywords": ", ".join(page.keywords[:8]),
         }
 
-    # Headings
     head_raw = gen(prompts["headings"]) or "{}"
     try:
         j = json.loads(head_raw)
@@ -357,7 +326,6 @@ def run_ai_generation(page: PageData, api_key: str, demo_mode: bool = False) -> 
 # -------------------------
 # Streamlit UI
 # -------------------------
-
 def main():
     st.set_page_config(page_title=APP_TITLE, page_icon="🧭", layout="wide")
 
@@ -371,93 +339,69 @@ def main():
         """,
         unsafe_allow_html=True,
     )
-with st.sidebar:
-    st.header("⚙️ Settings")
-    badge("Tip: You can run in demo mode without keys")
-
-    # Load keys from Streamlit Cloud Secrets if available
-    openai_key = st.text_input(
-        "OpenAI API Key",
-        type="password",
-        value=os.getenv("OPENAI_API_KEY", "")
-    )
-
-    serpapi_key = st.text_input(
-        "SerpAPI Key",
-        type="password",
-        value=os.getenv("SERPAPI_KEY", "")
-    )
-
-    model = st.selectbox(
-        "OpenAI Model",
-        ["gpt-4o-mini", "gpt-4o", "gpt-4.1-mini", "gpt-3.5-turbo"],
-        index=0
-    )
-
-    faq_count = st.slider(
-        "# of FAQs",
-        min_value=3,
-        max_value=8,
-        value=DEFAULT_FAQ_COUNT
-    )
-
-    st.caption("User questions are gathered from Reddit/Quora via Google (SerpAPI)")
-
-    demo_mode = st.toggle(
-        "Demo mode (no external calls)",
-        value=not bool(openai_key)
-    )
-
-    st.divider()
-    st.caption("RivalLens Mini · v1.0")
 
     # --- SIDEBAR: settings only ---
-with st.sidebar:
-    st.header("⚙️ Settings")
-    badge("Tip: You can run in demo mode without keys")
-    openai_key = st.text_input("OpenAI API Key", type="password", value=os.getenv("OPENAI_API_KEY", ""))
-    serpapi_key = st.text_input("SerpAPI Key", type="password", value=os.getenv("SERPAPI_KEY", ""))
-    model = st.selectbox("OpenAI Model", ["gpt-4o-mini", "gpt-4o", "gpt-4.1-mini", "gpt-3.5-turbo"], index=0)
-    faq_count = st.slider("# of FAQs", min_value=3, max_value=8, value=DEFAULT_FAQ_COUNT)
-    st.caption("User questions are gathered from Reddit/Quora via Google (SerpAPI)")
-    demo_mode = st.toggle("Demo mode (no external calls)", value=not bool(openai_key))
-    st.divider()
-    st.caption("RivalLens Mini · v1.0")
+    with st.sidebar:
+        st.header("⚙️ Settings")
+        badge("Tip: You can run in demo mode without keys")
 
-# --- MAIN PAGE: de-indented (no spaces here) ---
-# URL Input
-section_title("1) Input URLs", "Add up to 10 URLs — we'll fetch, extract keywords & more")
-col1, col2 = st.columns([2, 1])
-with col1:
-    urls_text = st.text_area(
-        "Paste 1–10 URLs (one per line)",
-        height=120,
-        placeholder="https://example.com/blog/seo-guide\nhttps://example.com/blog/keyword-research",
-    )
-with col2:
-    st.write("")
-    st.write("")
-    st.write("")
-    fetch_btn = st.button("Run Automation 🚀", type="primary", use_container_width=True)
-    st.caption("We'll crawl pages, pull keywords, find user questions, and generate outputs")
+        openai_key = st.text_input(
+            "OpenAI API Key",
+            type="password",
+            value=os.getenv("OPENAI_API_KEY", ""),
+        )
 
-if fetch_btn:
-    raw_urls = [u.strip() for u in urls_text.splitlines() if u.strip()]
-    # Unique + limit
-    seen = set()
-    urls = []
-    for u in raw_urls:
-        if u not in seen:
-            seen.add(u)
-            urls.append(u)
-        if len(urls) >= MAX_URLS:
-            break
+        serpapi_key = st.text_input(
+            "SerpAPI Key",
+            type="password",
+            value=os.getenv("SERPAPI_KEY", ""),
+        )
 
-    if not urls:
-        st.warning("Please add at least 1 URL.")
-        st.stop()
+        model = st.selectbox(
+            "OpenAI Model",
+            ["gpt-4o-mini", "gpt-4o", "gpt-4.1-mini", "gpt-3.5-turbo"],
+            index=0,
+        )
 
-    st.success(f"Processing {len(urls)} URL(s)...")
+        faq_count = st.slider("# of FAQs", min_value=3, max_value=8, value=DEFAULT_FAQ_COUNT)
+        st.caption("User questions are gathered from Reddit/Quora via Google (SerpAPI)")
+        demo_mode = st.toggle("Demo mode (no external calls)", value=not bool(openai_key))
+        st.divider()
+        st.caption("RivalLens Mini · v1.0")
+
+    # --- MAIN PAGE: Input ---
+    section_title("1) Input URLs", "Add up to 10 URLs — we'll fetch, extract keywords & more")
+    col1, col2 = st.columns([2, 1])
+    with col1:
+        urls_text = st.text_area(
+            "Paste 1–10 URLs (one per line)",
+            height=120,
+            placeholder="https://example.com/blog/seo-guide\nhttps://example.com/blog/keyword-research",
+        )
+    with col2:
+        st.write("")
+        st.write("")
+        st.write("")
+        fetch_btn = st.button("Run Automation 🚀", type="primary", use_container_width=True)
+        st.caption("We'll crawl pages, pull keywords, find user questions, and generate outputs")
+
+    if fetch_btn:
+        raw_urls = [u.strip() for u in urls_text.splitlines() if u.strip()]
+        # Unique + limit
+        seen = set()
+        urls: List[str] = []
+        for u in raw_urls:
+            if u not in seen:
+                seen.add(u)
+                urls.append(u)
+            if len(urls) >= MAX_URLS:
+                break
+
+        if not urls:
+            st.warning("Please add at least 1 URL.")
+            st.stop()
+
+        st.success(f"Processing {len(urls)} URL(s)...")
 
         pages: List[PageData] = []
         progress = st.progress(0)
@@ -475,7 +419,6 @@ if fetch_btn:
             kw = extract_keywords_basic(text, top_k=14)
             status.info(f"Extracted keywords for {url}")
 
-            # user questions
             q = collect_user_questions(kw, serpapi_key, per_source=faq_count)
             status.info(f"Found {len(q)} authentic user questions for {url}")
 
@@ -492,9 +435,7 @@ if fetch_btn:
             )
 
             status.info(f"Generating AI outputs for {url}")
-            # Temporarily set model in env for generate_with_openai
-            os.environ["OPENAI_MODEL"] = model
-            page = run_ai_generation(page, openai_key, demo_mode=demo_mode)
+            page = run_ai_generation(page, openai_key, model, demo_mode=demo_mode)
             pages.append(page)
 
             progress.progress(int(((idx + 1) / len(urls)) * 100))
@@ -503,7 +444,6 @@ if fetch_btn:
         # Step: Internal links (across pages)
         status.info("Calculating internal link recommendations…")
         cross_links = recommend_internal_links(pages, top_n=3)
-        # Assign back to pages
         for p in pages:
             p.inner_links = [rec for rec in cross_links if rec["source_url"] == p.url]
 
@@ -515,7 +455,12 @@ if fetch_btn:
             with st.container(border=True):
                 st.markdown(f"### 🔗 {p.title}")
                 st.caption(p.url)
-                chips = " ".join([f"<span style='background:#f1f5f9;padding:4px 8px;border-radius:999px;border:1px solid #e2e8f0;font-size:12px'>{html.escape(k)}</span>" for k in p.keywords[:10]])
+                chips = " ".join(
+                    [
+                        f"<span style='background:#f1f5f9;padding:4px 8px;border-radius:999px;border:1px solid #e2e8f0;font-size:12px'>{html.escape(k)}</span>"
+                        for k in p.keywords[:10]
+                    ]
+                )
                 st.markdown(chips, unsafe_allow_html=True)
 
                 t1, t2, t3, t4 = st.tabs(["FAQs", "Meta & Headings", "Internal Links", "Raw Content"])
@@ -523,8 +468,8 @@ if fetch_btn:
                 with t1:
                     if p.questions:
                         st.markdown("**Top user questions (from Reddit/Quora searches):**")
-                        for q in p.questions:
-                            st.markdown(f"- {q}")
+                        for q_text in p.questions:
+                            st.markdown(f"- {q_text}")
                     else:
                         st.info("No questions found. Try adding a SerpAPI key or adjust keywords.")
 
@@ -560,9 +505,8 @@ if fetch_btn:
         # Export Combined Results
         st.divider()
         section_title("Export Results")
-        all_rows = []
+        all_rows: List[Dict[str, str]] = []
         for p in pages:
-            # Flatten for CSV
             faq_flat = json.dumps(p.ai_faqs, ensure_ascii=False)
             h1 = (p.headings.get("h1", [""]) or [""])[0]
             h2 = p.headings.get("h2", [])
@@ -595,11 +539,13 @@ if fetch_btn:
             st.download_button("Download JSON", data=json_bytes, file_name="rivallens_mini_results.json", mime="application/json")
 
     # Footer
-    st.markdown("""
-    <hr/>
-    <div style="color:#6b7280;font-size:12px">Tip: Add API keys in the sidebar for live AI and question sourcing. Without keys, app runs in demo mode.</div>
-    """, unsafe_allow_html=True)
-
+    st.markdown(
+        """
+        <hr/>
+        <div style="color:#6b7280;font-size:12px">Tip: Add API keys in the sidebar for live AI and question sourcing. Without keys, app runs in demo mode.</div>
+        """,
+        unsafe_allow_html=True,
+    )
 
 if __name__ == "__main__":
     main()
