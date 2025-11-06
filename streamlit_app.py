@@ -371,10 +371,7 @@ def main():
         """,
         unsafe_allow_html=True,
     )
-
-    
-
-    with st.sidebar:
+with st.sidebar:
     st.header("⚙️ Settings")
     badge("Tip: You can run in demo mode without keys")
 
@@ -413,7 +410,6 @@ def main():
 
     st.divider()
     st.caption("RivalLens Mini · v1.0")
-
 
     # URL Input
     section_title("1) Input URLs", "Add up to 10 URLs — we'll fetch, extract keywords & more")
