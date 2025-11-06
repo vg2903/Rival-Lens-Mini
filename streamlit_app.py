@@ -376,7 +376,7 @@ with st.sidebar:
     )
 
 faq_count = st.slider("# of FAQs", min_value=3, max_value=8, value=DEFAULT_FAQ_COUNT)
-        st.caption("User questions are gathered from Reddit/Quora via Google (SerpAPI)")
+        
         demo_mode = st.toggle("Demo mode (no external calls)", value=not bool(openai_key))
         st.divider()
         st.caption("RivalLens Mini · v1.0")
