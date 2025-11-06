@@ -368,8 +368,18 @@ def main():
     with st.sidebar:
         st.header("⚙️ Settings")
         badge("Tip: You can run in demo mode without keys")
-        openai_key = st.text_input("OpenAI API Key (optional)", type="password")
-        serpapi_key = st.text_input("SerpAPI Key (optional)", type="password")
+        # Load keys from Streamlit Cloud Secrets if available
+    openai_key = st.text_input(
+        "OpenAI API Key",
+        type="password",
+        value=os.getenv("OPENAI_API_KEY", "")
+    )
+
+    serpapi_key = st.text_input(
+        "SerpAPI Key",
+        type="password",
+        value=os.getenv("SERPAPI_KEY", "")
+    )
         model = st.selectbox("OpenAI Model", ["gpt-4o-mini", "gpt-4o", "gpt-4.1-mini", "gpt-3.5-turbo"], index=0)
         faq_count = st.slider("# of FAQs", min_value=3, max_value=8, value=DEFAULT_FAQ_COUNT)
         st.caption("User questions are gathered from Reddit/Quora via Google (SerpAPI)")
