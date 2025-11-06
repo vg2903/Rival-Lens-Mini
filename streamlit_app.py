@@ -345,7 +345,6 @@ def main():
     st.header("⚙️ Settings")
     badge("Tip: You can run in demo mode without keys")
 
-    # read defaults from env / Streamlit Secrets
     default_openai = os.getenv("OPENAI_API_KEY", "")
     default_serpapi = os.getenv("SERPAPI_KEY", "")
 
@@ -354,11 +353,12 @@ def main():
 
     model = st.selectbox("OpenAI Model", ["gpt-4o-mini", "gpt-4o", "gpt-4.1-mini", "gpt-3.5-turbo"], index=0)
 
-    # pick whichever is non-empty (typed beats env)
+    faq_count = st.slider("# of FAQs", min_value=3, max_value=8, value=DEFAULT_FAQ_COUNT)
+
+    # pick whichever non-empty key we have
     effective_openai_key = openai_key_input or default_openai
     effective_serpapi_key = serpapi_key_input or default_serpapi
 
-    # auto-disable demo if a key exists
     demo_mode = st.toggle("Demo mode (no external calls)", value=(effective_openai_key == ""))
 
     st.caption("User questions are gathered from Reddit/Quora via Google (SerpAPI)")
