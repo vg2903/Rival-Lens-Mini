@@ -372,6 +372,8 @@ def main():
         unsafe_allow_html=True,
     )
 
+    
+
     with st.sidebar:
     st.header("⚙️ Settings")
     badge("Tip: You can run in demo mode without keys")
