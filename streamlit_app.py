@@ -360,7 +360,6 @@ def main():
 
     faq_count = st.slider("# of FAQs", min_value=3, max_value=8, value=DEFAULT_FAQ_COUNT)
 
-    # Choose whichever non-empty key is present
     effective_openai_key = openai_key_input or default_openai
     effective_serpapi_key = serpapi_key_input or default_serpapi
 
@@ -369,7 +368,6 @@ def main():
     st.caption("User questions are gathered from Reddit/Quora via Google (SerpAPI)")
     st.divider()
     st.caption("RivalLens Mini · v1.0")
-
 
     # --- MAIN PAGE: Input ---
     section_title("1) Input URLs", "Add up to 10 URLs — we'll fetch, extract keywords & more")
