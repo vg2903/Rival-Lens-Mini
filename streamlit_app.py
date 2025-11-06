@@ -411,39 +411,53 @@ with st.sidebar:
     st.divider()
     st.caption("RivalLens Mini · v1.0")
 
-    # URL Input
-    section_title("1) Input URLs", "Add up to 10 URLs — we'll fetch, extract keywords & more")
-    col1, col2 = st.columns([2, 1])
-    with col1:
-        urls_text = st.text_area(
-            "Paste 1–10 URLs (one per line)",
-            height=120,
-            placeholder="https://example.com/blog/seo-guide\nhttps://example.com/blog/keyword-research",
-        )
-    with col2:
-        st.write("")
-        st.write("")
-        st.write("")
-        fetch_btn = st.button("Run Automation 🚀", type="primary", use_container_width=True)
-        st.caption("We'll crawl pages, pull keywords, find user questions, and generate outputs")
+    # --- SIDEBAR: settings only ---
+with st.sidebar:
+    st.header("⚙️ Settings")
+    badge("Tip: You can run in demo mode without keys")
+    openai_key = st.text_input("OpenAI API Key", type="password", value=os.getenv("OPENAI_API_KEY", ""))
+    serpapi_key = st.text_input("SerpAPI Key", type="password", value=os.getenv("SERPAPI_KEY", ""))
+    model = st.selectbox("OpenAI Model", ["gpt-4o-mini", "gpt-4o", "gpt-4.1-mini", "gpt-3.5-turbo"], index=0)
+    faq_count = st.slider("# of FAQs", min_value=3, max_value=8, value=DEFAULT_FAQ_COUNT)
+    st.caption("User questions are gathered from Reddit/Quora via Google (SerpAPI)")
+    demo_mode = st.toggle("Demo mode (no external calls)", value=not bool(openai_key))
+    st.divider()
+    st.caption("RivalLens Mini · v1.0")
 
-    if fetch_btn:
-        raw_urls = [u.strip() for u in urls_text.splitlines() if u.strip()]
-        # Unique + limit
-        seen = set()
-        urls = []
-        for u in raw_urls:
-            if u not in seen:
-                seen.add(u)
-                urls.append(u)
-            if len(urls) >= MAX_URLS:
-                break
+# --- MAIN PAGE: de-indented (no spaces here) ---
+# URL Input
+section_title("1) Input URLs", "Add up to 10 URLs — we'll fetch, extract keywords & more")
+col1, col2 = st.columns([2, 1])
+with col1:
+    urls_text = st.text_area(
+        "Paste 1–10 URLs (one per line)",
+        height=120,
+        placeholder="https://example.com/blog/seo-guide\nhttps://example.com/blog/keyword-research",
+    )
+with col2:
+    st.write("")
+    st.write("")
+    st.write("")
+    fetch_btn = st.button("Run Automation 🚀", type="primary", use_container_width=True)
+    st.caption("We'll crawl pages, pull keywords, find user questions, and generate outputs")
 
-        if not urls:
-            st.warning("Please add at least 1 URL.")
-            st.stop()
+if fetch_btn:
+    raw_urls = [u.strip() for u in urls_text.splitlines() if u.strip()]
+    # Unique + limit
+    seen = set()
+    urls = []
+    for u in raw_urls:
+        if u not in seen:
+            seen.add(u)
+            urls.append(u)
+        if len(urls) >= MAX_URLS:
+            break
 
-        st.success(f"Processing {len(urls)} URL(s)...")
+    if not urls:
+        st.warning("Please add at least 1 URL.")
+        st.stop()
+
+    st.success(f"Processing {len(urls)} URL(s)...")
 
         pages: List[PageData] = []
         progress = st.progress(0)
