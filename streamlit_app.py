@@ -341,29 +341,41 @@ def main():
     )
 
     # --- SIDEBAR: settings only ---
-    with st.sidebar:
-        st.header("⚙️ Settings")
-        badge("Tip: You can run in demo mode without keys")
+with st.sidebar:
+    st.header("⚙️ Settings")
+    badge("Tip: You can run in demo mode without keys")
 
-        openai_key = st.text_input(
-            "OpenAI API Key",
-            type="password",
-            value=os.getenv("OPENAI_API_KEY", ""),
-        )
+    # Read defaults from environment (works with Streamlit Cloud Secrets)
+    default_openai = os.getenv("OPENAI_API_KEY", "")
+    default_serpapi = os.getenv("SERPAPI_KEY", "")
 
-        serpapi_key = st.text_input(
-            "SerpAPI Key",
-            type="password",
-            value=os.getenv("SERPAPI_KEY", ""),
-        )
+    openai_key_input = st.text_input(
+        "OpenAI API Key",
+        type="password",
+        value=default_openai,   # prefill from env/secrets
+    )
+    serpapi_key_input = st.text_input(
+        "SerpAPI Key",
+        type="password",
+        value=default_serpapi,  # prefill from env/secrets
+    )
 
-        model = st.selectbox(
-            "OpenAI Model",
-            ["gpt-4o-mini", "gpt-4o", "gpt-4.1-mini", "gpt-3.5-turbo"],
-            index=0,
-        )
+    model = st.selectbox(
+        "OpenAI Model",
+        ["gpt-4o-mini", "gpt-4o", "gpt-4.1-mini", "gpt-3.5-turbo"],
+        index=0,
+    )
 
-        faq_count = st.slider("# of FAQs", min_value=3, max_value=8, value=DEFAULT_FAQ_COUNT)
+    # Use whichever source is non-empty: typed value or env
+    effective_openai_key = openai_key_input or default_openai
+    effective_serpapi_key = serpapi_key_input or default_serpapi
+
+    demo_mode = st.toggle(
+        "Demo mode (no external calls)",
+        value=(effective_openai_key == "")
+    )
+
+faq_count = st.slider("# of FAQs", min_value=3, max_value=8, value=DEFAULT_FAQ_COUNT)
         st.caption("User questions are gathered from Reddit/Quora via Google (SerpAPI)")
         demo_mode = st.toggle("Demo mode (no external calls)", value=not bool(openai_key))
         st.divider()
