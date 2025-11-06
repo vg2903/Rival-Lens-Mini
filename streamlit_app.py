@@ -342,32 +342,28 @@ def main():
 
     # --- SIDEBAR: settings only ---
     with st.sidebar:
-        st.header("⚙️ Settings")
-        badge("Tip: You can run in demo mode without keys")
+    st.header("⚙️ Settings")
+    badge("Tip: You can run in demo mode without keys")
 
-        openai_key = st.text_input(
-            "OpenAI API Key",
-            type="password",
-            value=os.getenv("OPENAI_API_KEY", ""),
-        )
+    # read defaults from env / Streamlit Secrets
+    default_openai = os.getenv("OPENAI_API_KEY", "")
+    default_serpapi = os.getenv("SERPAPI_KEY", "")
 
-        serpapi_key = st.text_input(
-            "SerpAPI Key",
-            type="password",
-            value=os.getenv("SERPAPI_KEY", ""),
-        )
+    openai_key_input = st.text_input("OpenAI API Key", type="password", value=default_openai)
+    serpapi_key_input = st.text_input("SerpAPI Key", type="password", value=default_serpapi)
 
-        model = st.selectbox(
-            "OpenAI Model",
-            ["gpt-4o-mini", "gpt-4o", "gpt-4.1-mini", "gpt-3.5-turbo"],
-            index=0,
-        )
+    model = st.selectbox("OpenAI Model", ["gpt-4o-mini", "gpt-4o", "gpt-4.1-mini", "gpt-3.5-turbo"], index=0)
 
-        faq_count = st.slider("# of FAQs", min_value=3, max_value=8, value=DEFAULT_FAQ_COUNT)
-        st.caption("User questions are gathered from Reddit/Quora via Google (SerpAPI)")
-        demo_mode = st.toggle("Demo mode (no external calls)", value=not bool(openai_key))
-        st.divider()
-        st.caption("RivalLens Mini · v1.0")
+    # pick whichever is non-empty (typed beats env)
+    effective_openai_key = openai_key_input or default_openai
+    effective_serpapi_key = serpapi_key_input or default_serpapi
+
+    # auto-disable demo if a key exists
+    demo_mode = st.toggle("Demo mode (no external calls)", value=(effective_openai_key == ""))
+
+    st.caption("User questions are gathered from Reddit/Quora via Google (SerpAPI)")
+    st.divider()
+    st.caption("RivalLens Mini · v1.0")
 
     # --- MAIN PAGE: Input ---
     section_title("1) Input URLs", "Add up to 10 URLs — we'll fetch, extract keywords & more")
