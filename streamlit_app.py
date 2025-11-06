@@ -185,9 +185,16 @@ def collect_user_questions(keywords: List[str], serpapi_key: str, per_source: in
         return questions
 
     base_queries = [
-        f"site:{src} {kw} what", f"site:{src} {kw} how", f"site:{src} {kw} best", f"site:{src} {kw} vs"
-        for src in USER_QUESTION_SOURCES for kw in keywords[:3]
+    q
+    for src in USER_QUESTION_SOURCES
+    for kw in keywords[:3]
+    for q in [
+        f"site:{src} {kw} what",
+        f"site:{src} {kw} how",
+        f"site:{src} {kw} best",
+        f"site:{src} {kw} vs"
     ]
+]
 
     for q in base_queries:
         results = search_questions_serpapi(q, serpapi_key)
