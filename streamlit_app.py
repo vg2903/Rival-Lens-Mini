@@ -373,9 +373,10 @@ def main():
     )
 
     with st.sidebar:
-        st.header("⚙️ Settings")
-        badge("Tip: You can run in demo mode without keys")
-        # Load keys from Streamlit Cloud Secrets if available
+    st.header("⚙️ Settings")
+    badge("Tip: You can run in demo mode without keys")
+
+    # Load keys from Streamlit Cloud Secrets if available
     openai_key = st.text_input(
         "OpenAI API Key",
         type="password",
@@ -387,12 +388,30 @@ def main():
         type="password",
         value=os.getenv("SERPAPI_KEY", "")
     )
-        model = st.selectbox("OpenAI Model", ["gpt-4o-mini", "gpt-4o", "gpt-4.1-mini", "gpt-3.5-turbo"], index=0)
-        faq_count = st.slider("# of FAQs", min_value=3, max_value=8, value=DEFAULT_FAQ_COUNT)
-        st.caption("User questions are gathered from Reddit/Quora via Google (SerpAPI)")
-        demo_mode = st.toggle("Demo mode (no external calls)", value=not bool(openai_key))
-        st.divider()
-        st.caption("RivalLens Mini · v1.0")
+
+    model = st.selectbox(
+        "OpenAI Model",
+        ["gpt-4o-mini", "gpt-4o", "gpt-4.1-mini", "gpt-3.5-turbo"],
+        index=0
+    )
+
+    faq_count = st.slider(
+        "# of FAQs",
+        min_value=3,
+        max_value=8,
+        value=DEFAULT_FAQ_COUNT
+    )
+
+    st.caption("User questions are gathered from Reddit/Quora via Google (SerpAPI)")
+
+    demo_mode = st.toggle(
+        "Demo mode (no external calls)",
+        value=not bool(openai_key)
+    )
+
+    st.divider()
+    st.caption("RivalLens Mini · v1.0")
+
 
     # URL Input
     section_title("1) Input URLs", "Add up to 10 URLs — we'll fetch, extract keywords & more")
